@@ -1,57 +1,57 @@
-"""u-ravendell-charm-the-cartographers-a-one-day-00854547 entry: treasure map.
+"""Treasure-map entry for u-ravendell-charm-the-cartographers-a-one-day-00854547.
 
-The map is a hand-drawn-style treasure map of a fictional island, with six
-legible place labels: Skull Rock, Whispering Bay, The Sunken Galleon, Palm
-Grove, Dead Man's Cove, and X Marks the Spot. The picture was generated
-fresh for this entry and is shipped beside this program as entry.png
-(1024x683 JPEG, under the 1 MiB gate). This program does no drawing and
-needs no network: it copies the image shipped beside it.
+The island map shipped with this program (entry.png, a 1024x683 JPEG)
+shows a fictional island with six readable place names: Skull Rock,
+Whispering Bay, The Sunken Galleon, Palm Grove, Dead Man's Cove, and
+X Marks the Spot. Running this file copies that picture to
+/output/entry.png. No drawing happens here and nothing is fetched
+from the network.
 """
 
 import hashlib
 import os
 import shutil
+import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-SOURCE = os.path.join(HERE, "entry.png")
-DESTINATION = os.path.join(OUT, "entry.png")
+ENTRY = "entry.png"
+EXPECTED = "8d81ca2a9da1320b152a5bd4f19e7dc3b2cd471a4b1a730a01cb82ca41061403"
+MAX_BYTES = 1_048_576
 
-# SHA-256 of the shipped entry.png, so a corrupted copy fails loudly.
-EXPECTED_SHA256 = "8d81ca2a9da1320b152a5bd4f19e7dc3b2cd471a4b1a730a01cb82ca41061403"
+
+def fail(message):
+    print(f"entry check failed: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def file_sha256(path):
+    hasher = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(1 << 16)
+            if not block:
+                break
+            hasher.update(block)
+    return hasher.hexdigest()
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
-    shutil.copyfile(SOURCE, DESTINATION)
-    verify_copy()
-
-
-def _sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def verify_copy():
-    """Fail loudly instead of silently shipping a bad copy.
-
-    The gate rejects a truncated or corrupted entry, so confirm the
-    shipped image is the expected one, the output is byte-identical
-    to it, and the output still starts with the JPEG SOI marker.
-    """
-    if _sha256(SOURCE) != EXPECTED_SHA256:
-        raise SystemExit("shipped entry.png is not the expected image")
-    with open(DESTINATION, "rb") as f:
-        magic = f.read(2)
-    if magic != b"\xff\xd8":
-        raise SystemExit("entry.png output is not a JPEG (bad SOI marker)")
-    if os.path.getsize(DESTINATION) > 1048576:
-        raise SystemExit("entry.png output exceeds the 1 MiB gate")
-    if _sha256(SOURCE) != _sha256(DESTINATION):
-        raise SystemExit("entry.png output differs from the shipped image")
+    here = os.path.dirname(os.path.abspath(__file__))
+    source = os.path.join(here, ENTRY)
+    target_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
+    os.makedirs(target_dir, exist_ok=True)
+    target = os.path.join(target_dir, ENTRY)
+    if file_sha256(source) != EXPECTED:
+        fail("shipped entry.png does not match its recorded hash")
+    shutil.copyfile(source, target)
+    with open(target, "rb") as handle:
+        head = handle.read(2)
+    if head != b"\xff\xd8":
+        fail("copied entry.png is not a JPEG file")
+    if os.path.getsize(target) > MAX_BYTES:
+        fail("copied entry.png is larger than the 1 MiB limit")
+    if file_sha256(target) != EXPECTED:
+        fail("copied entry.png differs from the shipped image")
+    print(f"wrote {target} ({os.path.getsize(target)} bytes)")
 
 
 if __name__ == "__main__":
