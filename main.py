@@ -19,19 +19,19 @@ MAX_BYTES = 1_048_576
 
 
 def fail(message):
-    print(f"entry check failed: {message}", file=sys.stderr)
+    print("entry check failed: {0}".format(message), file=sys.stderr)
     raise SystemExit(1)
 
 
 def file_sha256(path):
-    hasher = hashlib.sha256()
+    digest = hashlib.sha256()
     with open(path, "rb") as handle:
         while True:
-            block = handle.read(1 << 16)
-            if not block:
+            chunk = handle.read(65536)
+            if not chunk:
                 break
-            hasher.update(block)
-    return hasher.hexdigest()
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main():
@@ -51,7 +51,7 @@ def main():
         fail("copied entry.png is larger than the 1 MiB limit")
     if file_sha256(target) != EXPECTED:
         fail("copied entry.png differs from the shipped image")
-    print(f"wrote {target} ({os.path.getsize(target)} bytes)")
+    print("wrote {0} ({1} bytes)".format(target, os.path.getsize(target)))
 
 
 if __name__ == "__main__":
